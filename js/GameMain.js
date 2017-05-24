@@ -71,6 +71,7 @@ function GameMain() {
 
     }
 
+
     //----------------------------------------------------------------------------
     // 初始FPS.
     //----------------------------------------------------------------------------
@@ -134,11 +135,12 @@ function GameMain() {
     render = function () {
         // 鎖 FPS 30.
         gameClockOldT += gameClock.getDelta();
-        if (gameClockOldT < 0.033) {
+        // 0.033.
+        if (gameClockOldT < 0.0165) {
             requestAnimationFrame(render);
             return;
         }
-        gameClockOldT -= 0.033;
+        gameClockOldT -= 0.0165;
                 
         // 開始計算FPS.
         stats.begin();
@@ -186,6 +188,42 @@ function GameMain() {
     // 設定成像迴圈.
     render();
 
+
+    //----------------------------------------------------------------------------
+    // 設定視窗..
+    //----------------------------------------------------------------------------
+    var setMenu = {
+        cameraZoom: -1500,
+        speed:1.0,
+        AI: '無',
+    };
+    var matChanger = function () {
+        cameraZoom = setMenu['cameraZoom'];
+        // 設定聚光燈物件.
+        spotLight1.position.set(0, 50, cameraZoom);
+        // 設置相機的位置
+        camera.position.set(0, 50, cameraZoom);
+        // 字隨著鏡頭縮放.
+        gamePlay.updateFontFollowCamera(cameraZoom + 1500);
+        // AI開關.
+        if (setMenu['AI'] == '無') {
+            gamePlay.aiMode = 0;
+        } else if (setMenu['AI'] == 'mode 1') {
+            gamePlay.aiMode = 1;
+        } else if (setMenu['AI'] == 'mode 2') {
+            gamePlay.aiMode = 2;
+        }
+        // 設定磚塊速度.
+        gamePlay.updateSpeed(setMenu['speed']);
+    };
+    var gui = new dat.GUI();
+    gui.add(setMenu, "cameraZoom", -4000, -1000, 1).onChange(matChanger);
+    gui.add(setMenu, "speed", 0.001, 1.0, 0.001).onChange(matChanger);
+    gui.add(setMenu, 'AI', ['無', 'mode 1', 'mode 2']).onChange(matChanger);
+    //gui.add(setMenu, "AI", true).onChange(matChanger);
+    matChanger();
+
+
     // 放開滑鼠.
     window.addEventListener('mouseup', onMouseUp, false);
     // 滑鼠移動. 
@@ -208,14 +246,14 @@ function GameMain() {
 //----------------------------------------------------------------------------
 window.onload = function () {
     // 使用手機裝置
-    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        alert("抱歉!!暫時不支援手機裝置!!請使用電腦版瀏覽器體驗!!");
-    }
+    //if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+    //    alert("抱歉!!暫時不支援手機裝置!!請使用電腦版瀏覽器體驗!!");
+    //}
     // 使用桌上裝置
-    else {
-        // 建立物件.
-        var gameMain = new GameMain();
-        // 顯示FPS.
-        gameMain.FPS(true);
-    }
+    //else {
+    // 建立物件.
+    var gameMain = new GameMain();
+    // 顯示FPS.
+    gameMain.FPS(false);
+    //}
 };

@@ -11,7 +11,7 @@
 function GamePlay(scene) {
 
     // 常數-磚塊快速下降速度.
-    var BRICK_DROP_RAPIDLY   = 0.001;
+    var BRICK_DROP_RAPIDLY   = 0.01;
     // 常數-磚塊正常下降速度.
     var BRICK_DOWN_SPEED_MAX = 1.0;
 
@@ -87,12 +87,24 @@ function GamePlay(scene) {
     // 連線數字物件.
     var fontLinesNumber = null;
     var fontHighestLinesNumber = null;
+    var fontLines = null;
+    var fontNext = null;
+    var fontHighestLines = null;
 
     // 10:遊戲中.
     // 11:遊戲中-清除磚塊.
     // 12:遊戲中-遊戲結束.
     var gamePlayMode = 10;
 
+    // AI.
+    var aiMode1 = new AIMode1();
+    var aiMode2 = new AIMode2();
+
+    // AI模式.
+    // 0:無.
+    // 1:模式1.
+    // 2:模式2.
+    this.aiMode = 0;
 
     //---------------------------------------------------------------------------
     // 取得磚塊索引陣列.
@@ -156,7 +168,7 @@ function GamePlay(scene) {
         }
 
         // 取得磚塊索引陣列.
-        pBrick = getBrickIndex(brickId, state);
+        var pBrick = getBrickIndex(brickId, state);
 
         // 轉換方塊到方塊陣列.
         for (i = 0; i < 4; i++) {
@@ -244,7 +256,7 @@ function GamePlay(scene) {
             }
         }
         // 取得磚塊索引陣列.
-        pBrick = getBrickIndex(brickId, 0);
+        var pBrick = getBrickIndex(brickId, 0);
 
         // 轉換方塊到方塊陣列.
         for (i = 0; i < 4; i++) {
@@ -301,7 +313,7 @@ function GamePlay(scene) {
     //---------------------------------------------------------------------------
     // 產生新磚塊.
     //---------------------------------------------------------------------------
-    brickNew = function () {
+    brickNew = function (aiMode) {
         // 判斷遊戲結束.
         var gameOver = false;
         if (containerY < 0) {
@@ -347,6 +359,18 @@ function GamePlay(scene) {
         if (gameOver) {
             // 重新開始遊戲.
             resetGame();
+        }
+
+        // AI旋轉方塊.
+        if (aiMode > 0) {
+            if (aiMode == 1) {
+                champion = aiMode1.go(bricksArray, brickId);
+            } else if (aiMode == 2) {
+                champion = aiMode2.go(bricksArray, brickId);
+            }
+            brickState = champion[0];
+            containerX = champion[1];
+            //console.log(champion);
         }
     }
 
@@ -400,6 +424,9 @@ function GamePlay(scene) {
     // 初始遊戲.
     //----------------------------------------------------------------------------
     resetGame = function () {
+
+        console.log("LinesNumber:" + linesNumber);
+        
         // 清除磚塊陣列.
         for (ix = 0; ix < 10; ix++) {
             for (iy = 0; iy < 20; iy++) {
@@ -416,7 +443,7 @@ function GamePlay(scene) {
         // 更新最高分數.
         if (linesNumber > highestLines) {
             highestLines = linesNumber;
-            modifyLabel(highestLines, fontHighestLinesNumber);            
+            modifyLabel(highestLines, fontHighestLinesNumber);
         }
 
         // 初始連線數量.
@@ -466,6 +493,9 @@ function GamePlay(scene) {
     this.onKeydown = function (keyCode) {
         // 10:遊戲中模式.
         if (gamePlayMode == 10) {
+            // AI模式離開.
+            if (this.aiMode > 0) { return;}
+
             // 上(W)-變換方塊.
             if (keyCode == 38 || keyCode == 87) {
                 // 在右邊界不能旋轉.
@@ -511,9 +541,9 @@ function GamePlay(scene) {
                 // 下(S)-快速下降.
             } if (keyCode == 40 || keyCode == 83) {
                 // 磚塊快速下降.
-                brickDownSpeedMax = BRICK_DROP_RAPIDLY;
-
-                // 左(A)-移動方塊.
+                brickDownSpeedMax = BRICK_DROP_RAPIDLY = 0.01;
+                
+               // 左(A)-移動方塊.
             } if (keyCode == 37 || keyCode == 65) {
                 containerX--;
                 if (containerX < 0) {
@@ -562,11 +592,13 @@ function GamePlay(scene) {
         }
     }
 
-
     //----------------------------------------------------------------------------
     // 放開鍵盤.
     //----------------------------------------------------------------------------
     this.onKeyup = function (keyCode) {
+        // AI模式離開.
+        if (this.aiMode > 0) { return; }
+
         // 10:遊戲中模式.
         // 下(S)-快速下降.
         if (keyCode == 40 || keyCode == 83) {
@@ -585,10 +617,10 @@ function GamePlay(scene) {
         if (gamePlayMode == 10) {
             // 方塊下降.
             brickDownSpeed += gamePlayClock.getDelta();
-            // 判斷不試快速下降中.
+            // 判斷不是快速下降中.
             if (brickDownSpeedMax != BRICK_DROP_RAPIDLY) {
                 brickDownSpeedMax = 1 - (0.02 * linesNumber);
-                if (brickDownSpeedMax < 0.1) { brickDownSpeedMax = 0.1; }
+                if (brickDownSpeedMax < BRICK_DROP_RAPIDLY) { brickDownSpeedMax = BRICK_DROP_RAPIDLY; }
             }
             if (brickDownSpeed >= brickDownSpeedMax) {
                 // 往下降.
@@ -596,7 +628,7 @@ function GamePlay(scene) {
                 // 碰到磚塊.
                 if (!ifCopyToBricksArray()) {
                     // 產生新塊.
-                    brickNew();
+                    brickNew(this.aiMode);
                 }
                 // 轉換定義方塊到方塊陣列.
                 transformToBricks(brickId, brickState);
@@ -639,18 +671,40 @@ function GamePlay(scene) {
     }
 
     //----------------------------------------------------------------------------
+    // 字隨著鏡頭縮放.
+    //----------------------------------------------------------------------------
+    this.updateFontFollowCamera = function (zoom) {
+        var z = -1000 + (zoom/1.5);
+        if (fontNext != null) {
+            fontNext.position.set(220, -260, z);
+            fontLines.position.set(220, -40, z);
+            fontLinesNumber.position.set(220, -4, z);
+            fontHighestLines.position.set(220, 80, z);
+            fontHighestLinesNumber.position.set(220, 116, z);
+        }
+    }
+
+    //----------------------------------------------------------------------------
+    // 設定磚塊下降速度.
+    //----------------------------------------------------------------------------
+    this.updateSpeed = function (speed) {        
+        brickDownSpeedMax = BRICK_DOWN_SPEED_MAX = BRICK_DROP_RAPIDLY = speed;
+                            
+    }
+
+    //----------------------------------------------------------------------------
     // Main.
     //----------------------------------------------------------------------------
     // 文字
     var loader = new THREE.FontLoader();
     loader.load('js/fonts/gentilis_regular.typeface.json', function (font) {        
         // Next 
-        var fontNext = addLabel("Next", font, 32, 0xffffff);
+        fontNext = addLabel("Next", font, 32, 0xffffff);
         fontNext.position.set(220, -260, -1000);
         fontNext.rotation.x = Math.PI;
 
         // Lines
-        var fontLines = addLabel("Lines", font, 32, 0xffffff);
+        fontLines = addLabel("Lines", font, 32, 0xffffff);
         fontLines.position.set(220, -40, -1000);
         fontLines.rotation.x = Math.PI;
         // LinesNumber
@@ -659,14 +713,13 @@ function GamePlay(scene) {
         fontLinesNumber.rotation.x = Math.PI;
                 
         // Highest Lines.
-        var highestLines = addLabel("Highest Lines", font, 32, 0xffffff);
-        highestLines.position.set(220, 80, -1000);
-        highestLines.rotation.x = Math.PI;
+        fontHighestLines = addLabel("Highest Lines", font, 32, 0xffffff);
+        fontHighestLines.position.set(220, 80, -1000);
+        fontHighestLines.rotation.x = Math.PI;
         // HighestLinesNumber.
         fontHighestLinesNumber = addLabel("0", font, 28, 0xffffff);
         fontHighestLinesNumber.position.set(220, 116, -1000);
         fontHighestLinesNumber.rotation.x = Math.PI;
-
 
     });
 
@@ -724,20 +777,6 @@ function GamePlay(scene) {
     var minNum = 1;
     var maxNum = 7;
     brickNextID = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
-    brickNew();
+    brickNew(this.aiMode);
         
-
-    /*
-    // Next.
-    var objectLoader = new THREE.ObjectLoader();
-    objectLoader.load("js/json/TextNext.json", function (obj) {
-        obj.scale.set(100,100,100);
-        obj.position.set( 260, -310, -1000);
-        obj.rotation.z = Math.PI;        
-        scene.add(obj);
-
-        //var brickBoxHelper = new THREE.BoxHelper(obj, 0xff000);
-        //scene.add(brickBoxHelper);
-    });
-    */
 }
